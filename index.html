@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TintConnect — Find a Window Tinter Near You</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="./config.js"></script>
+<style>
+  :root {
+    --bg: #0a0e1a; --bg2: #111827; --card: #1a2233; --card2: #222d42;
+    --accent: #00d4ff; --accent2: #7c3aed; --text: #f1f5f9; --muted: #94a3b8;
+    --green: #22c55e; --gold: #fbbf24; --red: #ef4444;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; }
+  .view { display: none; max-width: 1200px; margin: 0 auto; padding: 0 20px 60px; }
+  .view.active { display: block; animation: fadeIn .3s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+  nav { background: rgba(10,14,26,.92); backdrop-filter: blur(12px); position: sticky; top: 0; z-index: 100; border-bottom: 1px solid #1e293b; }
+  .nav-inner { max-width: 1200px; margin: 0 auto; padding: 14px 20px; display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .logo { font-size: 22px; font-weight: 800; letter-spacing: -.5px; cursor: pointer; }
+  .logo span { color: var(--accent); }
+  .nav-links { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .nav-btn { background: transparent; border: 1px solid #334155; color: var(--text); padding: 9px 18px; border-radius: 999px; font-size: 14px; font-weight: 600; cursor: pointer; transition: .2s; }
+  .nav-btn:hover { border-color: var(--accent); color: var(--accent); }
+  .nav-btn.primary { background: var(--accent); border-color: var(--accent); color: #06202a; }
+  .nav-btn.primary:hover { filter: brightness(1.1); color: #06202a; }
+  .nav-user { font-size: 13.5px; color: var(--muted); }
+  .nav-user b { color: var(--text); }
+
+  .demo-banner { background: rgba(251,191,36,.08); border-bottom: 1px solid rgba(251,191,36,.3); color: var(--gold); font-size: 13px; text-align: center; padding: 9px 16px; }
+  .demo-banner a { color: var(--gold); font-weight: 700; }
+
+  .hero { text-align: center; padding: 70px 20px 30px; }
+  .hero h1 { font-size: clamp(34px, 6vw, 58px); font-weight: 800; letter-spacing: -1.5px; line-height: 1.05; }
+  .hero h1 .grad { background: linear-gradient(90deg, var(--accent), var(--accent2)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+  .hero p { color: var(--muted); font-size: 18px; margin: 16px auto 0; max-width: 560px; }
+  .trust-row { display: flex; gap: 10px; justify-content: center; margin-top: 22px; flex-wrap: wrap; }
+  .trust-chip { background: rgba(34,197,94,.08); border: 1px solid rgba(34,197,94,.3); color: var(--green); font-size: 13px; font-weight: 600; padding: 8px 16px; border-radius: 999px; }
+  .search-bar { display: flex; gap: 10px; max-width: 720px; margin: 26px auto 0; background: var(--card); border: 1px solid #2d3a52; border-radius: 16px; padding: 10px; }
+  .search-bar input, .search-bar select { flex: 1; background: var(--bg2); border: 1px solid #2d3a52; color: var(--text); border-radius: 10px; padding: 13px 16px; font-size: 15px; outline: none; min-width: 0; }
+  .search-bar input:focus, .search-bar select:focus { border-color: var(--accent); }
+  .search-bar button { background: var(--accent); color: #06202a; border: none; border-radius: 10px; padding: 13px 28px; font-size: 15px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+  .search-bar button:hover { filter: brightness(1.1); }
+  .service-pills { display: flex; gap: 10px; justify-content: center; margin-top: 18px; flex-wrap: wrap; }
+  .pill { background: var(--card); border: 1px solid #2d3a52; color: var(--muted); padding: 9px 20px; border-radius: 999px; font-size: 14px; font-weight: 600; cursor: pointer; transition: .2s; }
+  .pill:hover, .pill.on { border-color: var(--accent); color: var(--accent); }
+  .pill.on { background: rgba(0,212,255,.08); }
+
+  .sec-title { font-size: 24px; font-weight: 700; margin: 50px 0 6px; letter-spacing: -.5px; }
+  .sec-sub { color: var(--muted); font-size: 15px; margin-bottom: 22px; }
+
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+  .tcard { background: var(--card); border: 1px solid #24304a; border-radius: 18px; overflow: hidden; cursor: pointer; transition: .25s; }
+  .tcard:hover { transform: translateY(-4px); border-color: var(--accent); box-shadow: 0 12px 40px rgba(0,212,255,.12); }
+  .tcard-photo { height: 170px; background: linear-gradient(135deg, #1e293b, #0f172a); display: flex; align-items: center; justify-content: center; font-size: 54px; position: relative; overflow: hidden; }
+  .tcard-photo img { width: 100%; height: 100%; object-fit: cover; position: absolute; inset: 0; }
+  .tcard-photo .badge { position: absolute; top: 12px; right: 12px; background: rgba(6,32,42,.85); color: var(--accent); font-size: 12px; font-weight: 700; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--accent); }
+  .tcard-body { padding: 18px; }
+  .tcard-name { font-size: 18px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .verified { color: var(--accent); font-size: 16px; }
+  .tcard-meta { color: var(--muted); font-size: 13.5px; margin: 6px 0; }
+  .stars { color: var(--gold); font-size: 15px; letter-spacing: 1px; }
+  .stars b { color: var(--text); }
+  .tcard-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; padding-top: 12px; border-top: 1px solid #24304a; }
+  .price { font-size: 18px; font-weight: 800; } .price small { color: var(--muted); font-weight: 400; font-size: 12px; }
+  .dist { color: var(--muted); font-size: 13px; }
+  .warranty-line { display: flex; align-items: center; gap: 6px; margin-top: 10px; font-size: 12.5px; color: var(--green); }
+
+  .back { color: var(--muted); cursor: pointer; font-size: 14px; margin: 24px 0 0; display: inline-block; }
+  .back:hover { color: var(--accent); }
+  .prof-head { display: flex; gap: 24px; margin-top: 16px; background: var(--card); border: 1px solid #24304a; border-radius: 20px; padding: 28px; flex-wrap: wrap; }
+  .prof-avatar { width: 110px; height: 110px; border-radius: 24px; background: linear-gradient(135deg, var(--accent2), var(--accent)); display: flex; align-items: center; justify-content: center; font-size: 48px; flex-shrink: 0; overflow: hidden; }
+  .prof-avatar img { width: 100%; height: 100%; object-fit: cover; }
+  .prof-info h2 { font-size: 28px; letter-spacing: -.5px; }
+  .prof-info .loc { color: var(--muted); margin: 6px 0; }
+  .prof-stats { display: flex; gap: 26px; margin-top: 14px; flex-wrap: wrap; }
+  .pstat b { font-size: 20px; display: block; } .pstat span { color: var(--muted); font-size: 12.5px; }
+  .prof-cta { margin-left: auto; display: flex; flex-direction: column; justify-content: center; gap: 10px; }
+  .btn { padding: 14px 32px; border-radius: 12px; font-size: 16px; font-weight: 700; cursor: pointer; border: none; transition: .2s; }
+  .btn-acc { background: var(--accent); color: #06202a; } .btn-acc:hover { filter: brightness(1.12); }
+  .btn-ghost { background: transparent; border: 1px solid #334155; color: var(--text); } .btn-ghost:hover { border-color: var(--accent); }
+  .btn-sm { padding: 9px 20px; font-size: 14px; }
+  .btn:disabled { opacity: .5; cursor: default; }
+  .prof-grid { display: grid; grid-template-columns: 1.4fr 1fr; gap: 20px; margin-top: 20px; }
+  @media (max-width: 800px) { .prof-grid { grid-template-columns: 1fr; } }
+  .panel { background: var(--card); border: 1px solid #24304a; border-radius: 18px; padding: 24px; }
+  .panel h3 { font-size: 18px; margin-bottom: 16px; }
+  .portfolio { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .portfolio div { aspect-ratio: 1; border-radius: 12px; background: linear-gradient(135deg, #24304a, #111827); display: flex; align-items: center; justify-content: center; font-size: 30px; overflow: hidden; }
+  .portfolio div img { width: 100%; height: 100%; object-fit: cover; }
+  .svc-row { display: flex; justify-content: space-between; padding: 12px 0; border-bottom: 1px solid #24304a; font-size: 15px; }
+  .svc-row:last-child { border: none; } .svc-row b { font-weight: 700; }
+  .review { padding: 14px 0; border-bottom: 1px solid #24304a; } .review:last-child { border: none; }
+  .review .who { font-weight: 700; font-size: 14px; } .review .txt { color: var(--muted); font-size: 14px; margin-top: 4px; line-height: 1.5; }
+  .review .vtag { font-size: 11px; color: var(--green); font-weight: 700; margin-left: 8px; }
+  .protect-box { background: rgba(34,197,94,.06); border: 1px solid rgba(34,197,94,.25); border-radius: 14px; padding: 18px; margin-top: 18px; }
+  .protect-box h4 { color: var(--green); font-size: 15px; margin-bottom: 8px; }
+  .protect-box ul { list-style: none; } .protect-box li { font-size: 13.5px; color: var(--muted); padding: 4px 0; line-height: 1.5; }
+  .protect-box li::before { content: "✓ "; color: var(--green); font-weight: 700; }
+  .contact-hidden { background: var(--bg2); border: 1px dashed #334155; border-radius: 12px; padding: 14px 18px; margin-top: 14px; font-size: 13.5px; color: var(--muted); text-align: center; }
+
+  .steps { display: flex; gap: 8px; margin: 24px 0; }
+  .step { flex: 1; text-align: center; font-size: 12.5px; color: var(--muted); padding: 10px 4px; border-radius: 10px; background: var(--card); border: 1px solid #24304a; }
+  .step.on { color: var(--accent); border-color: var(--accent); font-weight: 700; }
+  .step.done { color: var(--green); border-color: var(--green); }
+  .opt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; margin-top: 18px; }
+  .opt { background: var(--card); border: 2px solid #24304a; border-radius: 14px; padding: 20px 14px; text-align: center; cursor: pointer; transition: .2s; }
+  .opt:hover { border-color: #475569; } .opt.sel { border-color: var(--accent); background: rgba(0,212,255,.06); }
+  .opt .ico { font-size: 34px; } .opt .lbl { font-weight: 700; margin-top: 8px; font-size: 14.5px; } .opt .sub { color: var(--muted); font-size: 12.5px; margin-top: 4px; }
+  .shade-row { display: flex; gap: 12px; margin-top: 18px; flex-wrap: wrap; }
+  .shade { flex: 1; min-width: 120px; border: 2px solid #24304a; border-radius: 14px; padding: 16px; text-align: center; cursor: pointer; transition: .2s; }
+  .shade:hover { border-color: #475569; } .shade.sel { border-color: var(--accent); }
+  .shade .swatch { height: 44px; border-radius: 10px; margin-bottom: 10px; border: 1px solid #334155; }
+  .book-nav { display: flex; justify-content: space-between; margin-top: 30px; }
+  .summary { background: var(--bg2); border: 1px solid #2d3a52; border-radius: 14px; padding: 20px; margin-top: 18px; }
+  .summary .row { display: flex; justify-content: space-between; padding: 8px 0; font-size: 15px; }
+  .summary .total { border-top: 1px solid #2d3a52; margin-top: 8px; padding-top: 14px; font-size: 19px; font-weight: 800; }
+  .escrow-note { background: rgba(0,212,255,.06); border: 1px solid rgba(0,212,255,.25); border-radius: 14px; padding: 18px; margin-top: 16px; font-size: 14px; line-height: 1.6; color: var(--muted); }
+  .escrow-note b { color: var(--accent); }
+  .success { text-align: center; padding: 60px 20px; }
+  .success .big { font-size: 70px; } .success h2 { font-size: 30px; margin: 16px 0 8px; } .success p { color: var(--muted); }
+
+  .dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-top: 20px; }
+  .stat-card { background: var(--card); border: 1px solid #24304a; border-radius: 16px; padding: 22px; }
+  .stat-card b { font-size: 30px; display: block; } .stat-card span { color: var(--muted); font-size: 13px; }
+  .job { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; border-bottom: 1px solid #24304a; gap: 12px; flex-wrap: wrap; }
+  .job:last-child { border: none; }
+  .job .d { font-weight: 700; } .job .s { color: var(--muted); font-size: 13.5px; margin-top: 3px; }
+  .job .actions { display: flex; gap: 8px; }
+  .tag { font-size: 12px; font-weight: 700; padding: 5px 12px; border-radius: 999px; white-space: nowrap; }
+  .tag.new { background: rgba(0,212,255,.12); color: var(--accent); }
+  .tag.ok { background: rgba(34,197,94,.12); color: var(--green); }
+  .tag.warn { background: rgba(251,191,36,.12); color: var(--gold); }
+  .tag.bad { background: rgba(239,68,68,.12); color: var(--red); }
+  .policy { background: rgba(251,191,36,.06); border: 1px solid rgba(251,191,36,.25); border-radius: 14px; padding: 18px; margin-top: 20px; font-size: 13.5px; color: var(--muted); line-height: 1.6; }
+  .policy b { color: var(--gold); }
+
+  .how-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; margin-top: 20px; }
+  .how-card { background: var(--card); border: 1px solid #24304a; border-radius: 16px; padding: 26px; }
+  .how-card .n { font-size: 15px; font-weight: 800; color: var(--accent); } .how-card h4 { font-size: 17px; margin: 10px 0 8px; } .how-card p { color: var(--muted); font-size: 14px; line-height: 1.6; }
+
+  /* forms + auth */
+  .form-card { background: var(--card); border: 1px solid #24304a; border-radius: 18px; padding: 32px; max-width: 460px; margin: 30px auto 0; }
+  .form-card h2 { font-size: 24px; margin-bottom: 6px; }
+  .form-card .sub { color: var(--muted); font-size: 14px; margin-bottom: 22px; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 13px; font-weight: 700; color: var(--muted); margin-bottom: 6px; }
+  .field input, .field select, .field textarea { width: 100%; background: var(--bg2); border: 1px solid #2d3a52; color: var(--text); border-radius: 10px; padding: 13px 16px; font-size: 15px; outline: none; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); }
+  .form-err { background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.35); color: var(--red); border-radius: 10px; padding: 12px 16px; font-size: 14px; margin-bottom: 16px; display: none; }
+  .auth-tabs { display: flex; gap: 8px; margin-bottom: 22px; }
+  .auth-tabs .pill { flex: 1; text-align: center; }
+  .role-pick { display: flex; gap: 10px; margin-bottom: 14px; }
+  .role-pick .opt { flex: 1; padding: 16px 10px; }
+
+  #toast { position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--card2); border: 1px solid var(--accent); color: var(--text); padding: 13px 24px; border-radius: 12px; font-size: 14.5px; font-weight: 600; opacity: 0; pointer-events: none; transition: .3s; z-index: 200; max-width: 90vw; text-align: center; }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .empty { color: var(--muted); padding: 30px 0; text-align: center; }
+
+  footer { text-align: center; color: var(--muted); font-size: 13px; padding: 40px 20px; border-top: 1px solid #1e293b; margin-top: 40px; }
+  input[type=date] { color-scheme: dark; }
+  @media (max-width: 640px) {
+    .search-bar { flex-direction: column; }
+    .prof-cta { margin-left: 0; width: 100%; }
+    .steps { flex-wrap: wrap; }
+  }
+</style>
+</head>
+<body>
+
+<div class="demo-banner" id="demo-banner" style="display:none">🧪 <b>Demo mode</b> — sample data only. Connect Supabase to go live: see <a href="SETUP.md">SETUP.md</a></div>
+
+<nav><div class="nav-inner">
+  <div class="logo" onclick="go('home')">tint<span>connect</span></div>
+  <div class="nav-links" id="nav-links"></div>
+</div></nav>
+
+<!-- ============ HOME ============ -->
+<div class="view active" id="v-home">
+  <div class="hero">
+    <h1>Get your windows tinted<br><span class="grad">by a pro near you.</span></h1>
+    <p>Compare verified local tinters, see real prices, book in minutes. Cars, homes &amp; offices.</p>
+    <div class="trust-row">
+      <span class="trust-chip">🔒 Secure in-app payments</span>
+      <span class="trust-chip">🛡️ Warranty on every booking</span>
+      <span class="trust-chip">✓ Verified pros only</span>
+    </div>
+    <div class="search-bar">
+      <input id="q-loc" placeholder="City or ZIP — e.g. Sebastian, FL">
+      <select id="q-type">
+        <option>Car / Truck / SUV</option><option>Home</option><option>Commercial</option><option>Boat / RV</option>
+      </select>
+      <button onclick="search()">Search</button>
+    </div>
+    <div class="service-pills">
+      <div class="pill on">🚗 Auto</div><div class="pill">🏠 Residential</div><div class="pill">🏢 Commercial</div><div class="pill">🛥️ Marine</div>
+    </div>
+  </div>
+
+  <div class="sec-title">Top rated near Sebastian, FL</div>
+  <div class="sec-sub">Verified pros · real reviews · upfront pricing · warranty included</div>
+  <div class="cards" id="home-cards"></div>
+
+  <div class="sec-title">How it works</div>
+  <div class="how-grid">
+    <div class="how-card"><div class="n">01</div><h4>Search &amp; compare</h4><p>Enter your location and vehicle. See verified tinters with photos of real work, ratings, and upfront prices. Contact details stay private until you book.</p></div>
+    <div class="how-card"><div class="n">02</div><h4>Pick your tint</h4><p>Choose your shade and film — dyed, carbon, or ceramic — with honest heat-rejection specs, not sales talk.</p></div>
+    <div class="how-card"><div class="n">03</div><h4>Book &amp; pay securely</h4><p>Pick a time, pay in-app. Your money is held until the job's done right — and your warranty is only valid on in-app bookings.</p></div>
+  </div>
+
+  <div class="sec-title">Why book through TintConnect?</div>
+  <div class="how-grid">
+    <div class="how-card"><div class="n">🛡️</div><h4>Lifetime warranty</h4><p>Every in-app booking comes with a lifetime install warranty. Go around the app and you're on your own — no coverage, no recourse.</p></div>
+    <div class="how-card"><div class="n">🔒</div><h4>Money-back protection</h4><p>Payment is held in escrow and only released when you confirm the job's done right. Bubbles, peeling, bad edges? Don't release it.</p></div>
+    <div class="how-card"><div class="n">✓</div><h4>Verified reviews</h4><p>Every review comes from a real completed booking. No fake 5-stars, no paid placements — just honest feedback from real customers.</p></div>
+  </div>
+</div>
+
+<!-- ============ RESULTS ============ -->
+<div class="view" id="v-results">
+  <div class="back" onclick="go('home')">← Back to search</div>
+  <div class="sec-title" id="res-title">Tinters near you</div>
+  <div class="sec-sub" id="res-sub"></div>
+  <div class="service-pills" id="res-filters" style="justify-content:flex-start;margin:0 0 20px">
+    <div class="pill on" data-f="all" onclick="setFilter('all')">All</div>
+    <div class="pill" data-f="shop" onclick="setFilter('shop')">🏠 Tint shops</div>
+    <div class="pill" data-f="solo" onclick="setFilter('solo')">👤 Independent pros</div>
+    <div class="pill" data-f="mobile" onclick="setFilter('mobile')">🚐 Mobile service</div>
+  </div>
+  <div class="cards" id="res-cards"></div>
+</div>
+
+<!-- ============ PROFILE ============ -->
+<div class="view" id="v-profile">
+  <div class="back" onclick="go('results')">← Back to results</div>
+  <div id="prof-wrap"></div>
+</div>
+
+<!-- ============ BOOKING ============ -->
+<div class="view" id="v-book">
+  <div class="back" onclick="go('profile')">← Back to profile</div>
+  <div class="sec-title">Book with <span id="book-name"></span></div>
+  <div class="steps" id="book-steps"></div>
+  <div id="book-body"></div>
+  <div class="book-nav">
+    <button class="btn btn-ghost" id="book-back" onclick="bookNav(-1)">← Back</button>
+    <button class="btn btn-acc" id="book-next" onclick="bookNav(1)">Continue →</button>
+  </div>
+</div>
+
+<!-- ============ MY BOOKINGS (customer) ============ -->
+<div class="view" id="v-mybookings">
+  <div class="sec-title">My bookings</div>
+  <div class="sec-sub">Track your upcoming and past tint jobs</div>
+  <div class="panel" id="mybookings-list"></div>
+</div>
+
+<!-- ============ PAYOUTS (admin) ============ -->
+<div class="view" id="v-payouts">
+  <div class="sec-title">💰 Payouts</div>
+  <div class="sec-sub">Jobs confirmed by customers — pay each tinter their 88% cut</div>
+  <div class="dash-grid" id="payout-stats"></div>
+  <div class="panel" id="payout-list"></div>
+</div>
+
+<!-- ============ AUTH ============ -->
+<div class="view" id="v-auth">
+  <div class="form-card">
+    <h2 id="auth-title">Welcome back</h2>
+    <div class="sub" id="auth-sub">Log in to book tinters or manage your jobs.</div>
+    <div class="auth-tabs">
+      <div class="pill on" id="tab-login" onclick="authTab('login')">Log in</div>
+      <div class="pill" id="tab-signup" onclick="authTab('signup')">Sign up</div>
+    </div>
+    <div class="form-err" id="auth-err"></div>
+    <div class="field" id="f-name" style="display:none">
+      <label>Your name</label>
+      <input id="auth-name" placeholder="Jane Doe" autocomplete="name">
+    </div>
+    <div class="field">
+      <label>Email</label>
+      <input id="auth-email" type="email" placeholder="you@email.com" autocomplete="email">
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input id="auth-pass" type="password" placeholder="••••••••" autocomplete="current-password">
+    </div>
+    <div id="f-role" style="display:none">
+      <label style="display:block;font-size:13px;font-weight:700;color:var(--muted);margin-bottom:6px">I am a…</label>
+      <div class="role-pick">
+        <div class="opt sel" id="role-customer" onclick="pickRole('customer')"><div class="ico">🚗</div><div class="lbl">Customer</div><div class="sub">Book tint jobs</div></div>
+        <div class="opt" id="role-tinter" onclick="pickRole('tinter')"><div class="ico">🧰</div><div class="lbl">Tinter</div><div class="sub">Get hired</div></div>
+      </div>
+    </div>
+    <button class="btn btn-acc" id="auth-go" style="width:100%" onclick="authGo()">Log in</button>
+    <div id="demo-auth" style="display:none;margin-top:16px;text-align:center">
+      <div style="color:var(--muted);font-size:13px;margin-bottom:10px">— or try demo mode —</div>
+      <div style="display:flex;gap:10px;justify-content:center">
+        <button class="btn btn-ghost btn-sm" onclick="demoLogin('customer')">Demo customer</button>
+        <button class="btn btn-ghost btn-sm" onclick="demoLogin('tinter')">Demo tinter</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ TINTER ONBOARDING ============ -->
+<div class="view" id="v-onboard">
+  <div class="back" onclick="go('home')">← Back</div>
+  <div class="sec-title">Join as a tinter</div>
+  <div class="sec-sub">Get discovered by thousands of customers. Keep 88% of every job.</div>
+  <div class="steps" id="ob-steps"></div>
+  <div id="ob-body"></div>
+  <div class="book-nav">
+    <button class="btn btn-ghost" id="ob-back" onclick="obNav(-1)">← Back</button>
+    <button class="btn btn-acc" id="ob-next" onclick="obNav(1)">Continue →</button>
+  </div>
+</div>
+
+<!-- ============ TINTER DASHBOARD ============ -->
+<div class="view" id="v-dashboard">
+  <div class="sec-title">Tinter dashboard</div>
+  <div class="sec-sub" id="dash-sub"></div>
+  <div class="dash-grid" id="dash-stats"></div>
+  <div class="sec-title" style="font-size:20px">Job requests</div>
+  <div class="sec-sub" style="font-size:13.5px">Phase 2: new requests will also arrive by SMS — reply YES to accept.</div>
+  <div class="panel" id="dash-jobs"></div>
+  <div class="sec-title" style="font-size:20px">Your services &amp; pricing</div>
+  <div class="panel" id="dash-services"></div>
+  <div class="policy"><b>⚠️ Platform policy:</b> All bookings must go through TintConnect. Taking customers off-platform — sharing your phone number to book direct, or asking customers to pay cash — results in a warning, then removal. Your ratings, reviews, and warranty coverage only apply to in-app bookings. Stay on-platform and the jobs keep coming.</div>
+</div>
+
+<div id="toast"></div>
+<footer>TintConnect MVP · Bookings are real once Supabase is connected · Payments (Stripe) &amp; SMS alerts (Twilio) arrive in Phase 2</footer>
+
+<script>
+/* ================================================================
+   TintConnect MVP — app logic
+   Data layer (DB object) talks to Supabase when configured,
+   otherwise runs in DEMO MODE on embedded sample data.
+   ================================================================ */
+const CFG = (window.TC_CONFIG || {});
+const USE_DB = !!(CFG.SUPABASE_URL && CFG.SUPABASE_ANON_KEY && window.supabase);
+const sb = USE_DB ? window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY) : null;
+if (!USE_DB) document.getElementById('demo-banner').style.display = 'block';
+
+/* ---------- helpers ---------- */
+const $ = id => document.getElementById(id);
+const money = c => '$' + (c / 100).toLocaleString(undefined, { maximumFractionDigits: 0 });
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
+let toastT = null;
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 3200);
+}
+function go(v) {
+  document.querySelectorAll('.view').forEach(e => e.classList.remove('active'));
+  $('v-' + v).classList.add('active');
+  window.scrollTo(0, 0);
+  renderNav();
+}
+
+// --- Stripe return handler: customer paid, mark booking confirmed ---
+(async function handleStripeReturn() {
+  const h = location.hash || '';
+  if (h.startsWith('#booked=')) {
+    const bid = h.slice(8);
+    history.replaceState(null, '', location.pathname);
+    if (USE_DB && bid) {
+      try { await sb.from('bookings').update({ status: 'accepted', paid: true }).eq('id', bid); } catch (e) {}
+    }
+    go('mybookings');
+    toast('Payment successful! 🎉 Your booking is confirmed.');
+    if (typeof openMyBookings === 'function') openMyBookings();
+  } else if (h === '#booking-cancelled') {
+    history.replaceState(null, '', location.pathname);
+    toast('Payment cancelled — your booking request is saved, pay anytime from My bookings.');
+    go('mybookings');
+  }
+})();
+
+/* ---------- demo data (used when Supabase is not configured) ---------- */
+const DEMO_TINTERS = [
+  { id: 'a1111111-1111-1111-1111-111111111111', business_name: 'Coastline Tint Co.', owner_name: 'Marcus D.', kind: 'shop', location: 'Sebastian, FL', service_radius_mi: 30, years_exp: '6-10', mobile_service: true, bio: 'Family-run shop + mobile service. LLumar & 3M certified. Lifetime warranty on every in-app booking.', avatar_emoji: '🚗', photo: './tinter1-hero.jpg', tag: 'Top rated', verified: true, rating: 4.9, review_count: 214, jobs_completed: 890, base_price_cents: 29900, film_types: ['Dyed', 'Carbon', 'Ceramic'], portfolio_emoji: ['🚙', '🚗', '🛻'], portfolio: ['./tinter1-work1.jpg', './tinter1-work2.jpg', './tinter1-hero.jpg'],
+    services: [{ name: 'Full vehicle — ceramic', price_cents: 39900 }, { name: 'Full vehicle — carbon', price_cents: 29900 }, { name: 'Front two windows', price_cents: 9900 }, { name: 'Windshield brow', price_cents: 4900 }],
+    reviews: [{ who: 'Maria G.', rating: 5, text: 'Flawless install on my Model 3. Zero bubbles, done in 2 hours. Worth every penny.' }, { who: 'James T.', rating: 5, text: 'Showed up on time, tint looks factory. My truck stays so much cooler now.' }] },
+  { id: 'a2222222-2222-2222-2222-222222222222', business_name: 'ShadeMasters Mobile', owner_name: 'Tony R.', kind: 'solo', location: 'Vero Beach, FL', service_radius_mi: 25, years_exp: '6-10', mobile_service: true, bio: 'Fully mobile — I come to your driveway or office. Evening & weekend slots available.', avatar_emoji: '🛻', photo: './tinter2-hero.jpg', tag: 'Mobile only', verified: true, rating: 4.8, review_count: 167, jobs_completed: 640, base_price_cents: 24900, film_types: ['Carbon', 'Ceramic'], portfolio_emoji: ['🚗', '🚙', '🚐'], portfolio: ['./tinter2-work1.jpg', './tinter2-work2.jpg', './tinter2-hero.jpg'],
+    services: [{ name: 'Full vehicle — carbon', price_cents: 24900 }, { name: 'Full vehicle — ceramic', price_cents: 34900 }, { name: 'Two front windows', price_cents: 8900 }],
+    reviews: [{ who: 'Priya S.', rating: 5, text: 'He tinted my car in my own driveway while I worked from home. Incredible convenience.' }, { who: 'Dave L.', rating: 4, text: 'Great price, clean edges. Knows Florida tint law by heart.' }] },
+  { id: 'a3333333-3333-3333-3333-333333333333', business_name: 'DarkSide Customs', owner_name: 'Chris P.', kind: 'shop', location: 'Fort Pierce, FL', service_radius_mi: 40, years_exp: '3-5', mobile_service: false, bio: 'Custom shop specializing in show cars & exotics. Precision computer-cut patterns.', avatar_emoji: '🏎️', photo: './tinter3-hero.jpg', tag: 'Best value', verified: true, rating: 4.7, review_count: 98, jobs_completed: 410, base_price_cents: 19900, film_types: ['Dyed', 'Carbon'], portfolio_emoji: ['🏎️', '🚗', '🚙'], portfolio: ['./tinter3-work1.jpg', './tinter3-work2.jpg', './tinter3-hero.jpg'],
+    services: [{ name: 'Full vehicle — dyed', price_cents: 19900 }, { name: 'Full vehicle — carbon', price_cents: 27900 }, { name: 'Full windshield', price_cents: 14900 }],
+    reviews: [{ who: 'Alex K.', rating: 5, text: 'My Corvette looks mean now. Computer cut = perfect edges everywhere.' }] },
+  { id: 'a4444444-4444-4444-4444-444444444444', business_name: 'SunBlock Pros', owner_name: 'Lisa M.', kind: 'solo', location: 'Melbourne, FL', service_radius_mi: 35, years_exp: '10+', mobile_service: true, bio: '10 years in the trade. Cars, homes & storefronts. Free quotes with heat-lamp demo.', avatar_emoji: '🏠', photo: './tinter4-hero.jpg', tag: 'Home + auto', verified: true, rating: 4.9, review_count: 203, jobs_completed: 720, base_price_cents: 34900, film_types: ['Ceramic', 'Carbon'], portfolio_emoji: ['🏠', '🚗', '🏢'], portfolio: ['./tinter4-work1.jpg', './tinter4-work2.jpg', './tinter4-hero.jpg'],
+    services: [{ name: 'Full vehicle — ceramic', price_cents: 34900 }, { name: 'Home windows (per sq ft)', price_cents: 800 }, { name: 'Storefront', price_cents: 0 }],
+    reviews: [{ who: 'Karen W.', rating: 5, text: 'Did our whole house — electric bill dropped noticeably. True pros.' }, { who: 'Rob H.', rating: 5, text: 'Ceramic on my SUV. Night visibility still great, heat cut way down.' }] },
+  { id: 'a5555555-5555-5555-5555-555555555555', business_name: 'Palm Bay Tint Lab', owner_name: 'Devon A.', kind: 'shop', location: 'Palm Bay, FL', service_radius_mi: 30, years_exp: '3-5', mobile_service: false, bio: 'Newer shop, hungry for 5-star reviews. All work backed by lifetime warranty on in-app bookings.', avatar_emoji: '🚐', photo: './tinter5-hero.jpg', tag: null, verified: true, rating: 4.6, review_count: 74, jobs_completed: 290, base_price_cents: 22900, film_types: ['Dyed', 'Carbon', 'Ceramic'], portfolio_emoji: ['🚐', '🚗', '🛻'], portfolio: ['./tinter5-work1.jpg', './tinter5-work2.jpg', './tinter5-hero.jpg'],
+    services: [{ name: 'Full vehicle — dyed', price_cents: 22900 }, { name: 'Full vehicle — carbon', price_cents: 28900 }, { name: 'Removal + retint', price_cents: 14900 }],
+    reviews: [{ who: 'Sam O.', rating: 5, text: 'Young guy, meticulous work. Beat every quote I got.' }] },
+  { id: 'a6666666-6666-6666-6666-666666666666', business_name: 'Elite Film Works', owner_name: 'Sofia R.', kind: 'solo', location: 'Stuart, FL', service_radius_mi: 30, years_exp: '10+', mobile_service: true, bio: 'Ceramic-only specialist. 12 years, concours-level finishes. By appointment only.', avatar_emoji: '✨', photo: './tinter6-hero.jpg', tag: 'Premium', verified: true, rating: 5.0, review_count: 61, jobs_completed: 180, base_price_cents: 44900, film_types: ['Ceramic'], portfolio_emoji: ['✨', '🚗', '🏎️'], portfolio: ['./tinter6-work1.jpg', './tinter6-work2.jpg', './tinter6-hero.jpg'],
+    services: [{ name: 'Full vehicle — ceramic IR', price_cents: 44900 }, { name: 'Windshield ceramic', price_cents: 19900 }, { name: 'Paint protection film', price_cents: 0 }],
+    reviews: [{ who: 'Michael B.', rating: 5, text: "The best tint job I've ever seen. You get what you pay for." }] },
+];
+function demoBookings() {
+  try { return JSON.parse(localStorage.getItem('tc_demo_bookings') || '[]'); } catch (e) { return []; }
+}
+function saveDemoBookings(b) { localStorage.setItem('tc_demo_bookings', JSON.stringify(b)); }
+
+/* ================================================================
+   DATA LAYER — one API, two backends (Supabase / demo)
+   ================================================================ */
+let session = null; // { id, email, role, name }
+
+function normTinter(r) {
+  return {
+    id: r.id, name: r.business_name, owner: r.owner_name || '', kind: r.kind,
+    loc: r.location, dist: '', rating: Number(r.rating || 0), reviews: r.review_count || 0,
+    jobs: r.jobs_completed || 0, price: Math.round((r.base_price_cents || 0) / 100),
+    priceLbl: 'from ' + money(r.base_price_cents || 0), emoji: r.avatar_emoji || '🚗', photo: r.photo || null,
+    tag: r.tag, film: r.film_types || [], mobile: !!r.mobile_service, yrs: r.years_exp || '—',
+    about: r.bio || '', portfolio: r.portfolio || r.portfolio_emoji || [],
+    services: (r.services || []).map(s => [s.name, s.price_cents ? money(s.price_cents) + '+' : 'Custom']),
+    revs: (r.reviews || []).map(v => [v.who || 'Customer', v.text || '', v.rating || 5]),
+    verified: !!r.verified, _raw: r,
+  };
+}
+
+const DB = {
+  /* ---- tinters ---- */
+  async listTinters() {
+    if (!USE_DB) return DEMO_TINTERS.map(normTinter);
+    const { data, error } = await sb.from('tinters').select('*').eq('verified', true).order('rating', { ascending: false });
+    if (error) { toast('Could not load tinters: ' + error.message); return []; }
+    return (data || []).map(normTinter);
+  },
+  async getTinter(id) {
+    if (!USE_DB) {
+      const t = DEMO_TINTERS.find(x => x.id === id);
+      return t ? normTinter(t) : null;
+    }
+    const { data: t, error } = await sb.from('tinters').select('*').eq('id', id).single();
+    if (error || !t) return null;
+    const { data: svcs } = await sb.from('services').select('name,price_cents').eq('tinter_id', id);
+    const { data: revs } = await sb.from('reviews')
+      .select('rating,text,booking_id,bookings!inner(customer_id,profiles!bookings_customer_id_fkey(name))')
+      .eq('tinter_id', id).order('created_at', { ascending: false }).limit(10);
+    t.services = svcs || [];
+    t.reviews = (revs || []).map(r => ({
+      rating: r.rating, text: r.text,
+      who: (r.bookings && r.bookings.profiles && r.bookings.profiles.name) || 'Verified customer',
+    }));
+    return normTinter(t);
+  },
+
+  /* ---- auth ---- */
+  async getSession() {
+    if (!USE_DB) {
+      try { return JSON.parse(localStorage.getItem('tc_demo_session') || 'null'); } catch (e) { return null; }
+    }
+    const { data } = await sb.auth.getSession();
+    const u = data.session && data.session.user;
+    if (!u) return null;
+    let { data: p } = await sb.from('profiles').select('role,name').eq('id', u.id).single();
+    if (!p) {
+      // Came back from email confirmation link — create profile from stored metadata
+      const meta = (u.user_metadata) || {};
+      await sb.from('profiles').insert({
+        id: u.id, email: u.email,
+        role: meta.role || 'customer', name: meta.name || u.email
+      });
+      const r = await sb.from('profiles').select('role,name').eq('id', u.id).single();
+      p = r.data;
+    }
+    return { id: u.id, email: u.email, role: (p && p.role) || 'customer', name: (p && p.name) || u.email };
+  },
+  async signUp(email, name, role, password) {
+    if (!USE_DB) { toast('Demo mode: use a demo login below.'); return null; }
+    const { data, error } = await sb.auth.signUp({
+      email, password,
+      options: { data: { name, role } }
+    });
+    if (error) throw error;
+    const uid = data.user && data.user.id;
+    // Session may not exist yet if email confirmation is on
+    const { data: sess } = await sb.auth.getSession();
+    if (uid && sess.session) {
+      const { error: pErr } = await sb.from('profiles').insert({ id: uid, email, role, name });
+      if (pErr) throw pErr;
+    } else if (uid) {
+      // No session (email confirmation on) — profile will be created on first login
+      toast('Check your email to confirm, then log in.');
+    }
+    return this.getSession();
+  },
+  async signIn(email, password) {
+    if (!USE_DB) { toast('Demo mode: use a demo login below.'); return null; }
+    const { data, error } = await sb.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+    if (!data.user) throw new Error('No user returned.');
+    // Create profile if it doesn't exist yet (e.g. signed up with email confirmation on)
+    const { data: existing } = await sb.from('profiles').select('id').eq('id', data.user.id).single();
+    if (!existing) {
+      const meta = (data.user.user_metadata) || {};
+      await sb.from('profiles').insert({
+        id: data.user.id,
+        email: data.user.email,
+        role: meta.role || 'customer',
+        name: meta.name || data.user.email
+      });
+    }
+    return this.getSession();
+  },
+  async signOut() {
+    if (!USE_DB) { localStorage.removeItem('tc_demo_session'); session = null; return; }
+    await sb.auth.signOut();
+    session = null;
+  },
+
+  /* ---- tinter onboarding ---- */
+  async myTinter() {
+    if (!USE_DB) {
+      const s = session;
+      if (s && s.role === 'tinter' && s.tinterId) {
+        const t = DEMO_TINTERS.find(x => x.id === s.tinterId);
+        return t ? normTinter(t) : null;
+      }
+      return null;
+    }
+    const { data } = await sb.from('tinters').select('*').eq('profile_id', session.id).single();
+    if (!data) return null;
+    const { data: svcs } = await sb.from('services').select('name,price_cents').eq('tinter_id', data.id);
+    data.services = svcs || [];
+    return normTinter(data);
+  },
+  async createTinterApplication(a) {
+    // a: {biz, owner, loc, yrs, kind, mtype, radius, bio, services:[{name,price_cents}]}
+    if (!USE_DB) {
+      const t = {
+        id: 'demo-tinter-' + Date.now(), business_name: a.biz, owner_name: a.owner,
+        kind: a.kind === 'Tint shop / business' ? 'shop' : 'solo', location: a.loc,
+        service_radius_mi: parseInt(a.radius, 10) || 30, years_exp: a.yrs,
+        mobile_service: a.mtype !== 'Shop location', bio: a.bio || '',
+        avatar_emoji: '🚗', tag: null, verified: false, rating: 0, review_count: 0,
+        jobs_completed: 0, base_price_cents: Math.min.apply(null, a.services.map(s => s.price_cents).concat([0])),
+        film_types: [], portfolio_emoji: ['📷', '📷', '📷'],
+        services: a.services, reviews: [],
+      };
+      DEMO_TINTERS.push(t);
+      session.tinterId = t.id;
+      localStorage.setItem('tc_demo_session', JSON.stringify(session));
+      return normTinter(t);
+    }
+    const { data: t, error } = await sb.from('tinters').insert({
+      profile_id: session.id, business_name: a.biz, owner_name: a.owner,
+      kind: a.kind === 'Tint shop / business' ? 'shop' : 'solo', location: a.loc,
+      service_radius_mi: parseInt(a.radius, 10) || 30, years_exp: a.yrs,
+      mobile_service: a.mtype !== 'Shop location', bio: a.bio || '',
+      base_price_cents: Math.min.apply(null, a.services.map(s => s.price_cents).concat([0])),
+      verified: false, portfolio: a.photos || [],
+    }).select().single();
+    if (error) throw error;
+    if (a.services.length) {
+      const rows = a.services.map(s => ({ tinter_id: t.id, name: s.name, price_cents: s.price_cents }));
+      const { error: sErr } = await sb.from('services').insert(rows);
+      if (sErr) throw sErr;
+    }
+    return normTinter(t);
+  },
+
+  /* ---- bookings ---- */
+  async createBooking(b) {
+    // b: {tinter_id, vehicle_type, shade, film, scheduled_at, price_cents, fee_cents}
+    if (!USE_DB) {
+      const all = demoBookings();
+      const nb = Object.assign({ id: 'demo-bk-' + Date.now(), customer_id: session.id, customer_name: session.name, status: 'requested', created_at: new Date().toISOString() }, b);
+      const t = DEMO_TINTERS.find(x => x.id === b.tinter_id);
+      nb.tinter_name = t ? t.business_name : '';
+      all.unshift(nb);
+      saveDemoBookings(all);
+      return nb;
+    }
+    const { data, error } = await sb.from('bookings').insert(Object.assign({ customer_id: session.id }, b)).select().single();
+    if (error) throw error;
+    return data;
+  },
+  async customerBookings() {
+    if (!USE_DB) return demoBookings().filter(b => b.customer_id === (session && session.id));
+    const { data, error } = await sb.from('bookings')
+      .select('*,tinters!inner(business_name)').eq('customer_id', session.id)
+      .order('created_at', { ascending: false });
+    if (error) { toast('Could not load bookings: ' + error.message); return []; }
+    return (data || []).map(b => Object.assign(b, { tinter_name: b.tinters.business_name }));
+  },
+  async tinterBookings(tinterId) {
+    if (!USE_DB) return demoBookings().filter(b => b.tinter_id === tinterId);
+    const { data, error } = await sb.from('bookings')
+      .select('*,profiles!bookings_customer_id_fkey(name)').eq('tinter_id', tinterId)
+      .order('created_at', { ascending: false });
+    if (error) { toast('Could not load jobs: ' + error.message); return []; }
+    return (data || []).map(b => Object.assign(b, { customer_name: (b.profiles && b.profiles.name) || 'Customer' }));
+  },
+  async setBookingStatus(id, status) {
+    if (!USE_DB) {
+      const all = demoBookings().map(b => b.id === id ? Object.assign(b, { status }) : b);
+      saveDemoBookings(all);
+      return;
+    }
+    const { error } = await sb.from('bookings').update({ status }).eq('id', id);
+    if (error) throw error;
+  },
+};
+
+/* ================================================================
+   AUTH UI
+   ================================================================ */
+let authMode = 'login', pickedRole = 'customer';
+function authTab(m) {
+  authMode = m;
+  $('tab-login').classList.toggle('on', m === 'login');
+  $('tab-signup').classList.toggle('on', m === 'signup');
+  $('f-name').style.display = m === 'signup' ? 'block' : 'none';
+  $('f-role').style.display = m === 'signup' ? 'block' : 'none';
+  $('auth-title').textContent = m === 'login' ? 'Welcome back' : 'Create your account';
+  $('auth-sub').textContent = m === 'login' ? 'Log in to book tinters or manage your jobs.' : 'One account for booking — or for getting hired.';
+  $('auth-go').textContent = m === 'login' ? 'Log in' : 'Sign up';
+  $('auth-err').style.display = 'none';
+}
+function pickRole(r) {
+  pickedRole = r;
+  $('role-customer').classList.toggle('sel', r === 'customer');
+  $('role-tinter').classList.toggle('sel', r === 'tinter');
+}
+function authErr(msg) { const e = $('auth-err'); e.textContent = msg; e.style.display = 'block'; }
+async function authGo() {
+  const email = $('auth-email').value.trim(), pw = $('auth-pass').value;
+  if (!email || !pw) return authErr('Enter your email and password.');
+  $('auth-go').disabled = true;
+  try {
+    if (authMode === 'signup') {
+      const name = $('auth-name').value.trim();
+      if (!name) { authErr('Tell us your name.'); $('auth-go').disabled = false; return; }
+      session = await DB.signUp(email, name, pickedRole, pw);
+      if (!session) { $('auth-go').disabled = false; renderNav(); return; }
+      toast('Account created — welcome, ' + name + '!');
+      if (pickedRole === 'tinter') { startOnboard(); } else { go('home'); }
+    } else {
+      session = await DB.signIn(email, pw);
+      if (!session) { $('auth-go').disabled = false; return; }
+      toast('Logged in as ' + session.name);
+      go(session.role === 'tinter' ? 'dashboard' : 'home');
+    }
+  } catch (e) { authErr(e.message || 'Something went wrong.'); }
+  $('auth-go').disabled = false;
+  renderNav();
+}
+function demoLogin(role) {
+  session = role === 'tinter'
+    ? { id: 'demo-user-tinter', email: 'demo@tinter.app', role: 'tinter', name: 'Marcus D.', tinterId: 'a1111111-1111-1111-1111-111111111111' }
+    : { id: 'demo-user-cust', email: 'demo@customer.app', role: 'customer', name: 'Demo Customer' };
+  localStorage.setItem('tc_demo_session', JSON.stringify(session));
+  toast('Demo login as ' + (role === 'tinter' ? 'tinter (Marcus D.)' : 'customer'));
+  renderNav();
+  go(role === 'tinter' ? 'dashboard' : 'home');
+}
+async function logout() { await DB.signOut(); toast('Logged out.'); go('home'); }
+function requireAuth(role) {
+  if (!session) { authTab('login'); go('auth'); toast('Log in to continue.'); return false; }
+  if (role && session.role !== role) { toast('That area is for ' + role + 's.'); return false; }
+  return true;
+}
+function renderNav() {
+  const n = $('nav-links');
+  let h = '<button class="nav-btn" onclick="go(\'home\')">Find a tinter</button>';
+  if (session && session.role === 'customer') h += '<button class="nav-btn" onclick="openMyBookings()">My bookings</button>';
+  if (session && session.role === 'tinter') h += '<button class="nav-btn" onclick="openDashboard()">Dashboard</button>';
+  else h += '<button class="nav-btn" onclick="go(\'dashboard\')">Tinter dashboard</button>';
+  if (session && CFG.ADMIN_EMAIL && session.email && session.email.toLowerCase() === CFG.ADMIN_EMAIL.toLowerCase())
+    h += '<button class="nav-btn" onclick="openPayouts()" style="border-color:var(--warn);color:var(--warn)">💰 Payouts</button>';
+  h += '<button class="nav-btn primary" onclick="startOnboard()">Join as a tinter</button>';
+  if (session) h += '<span class="nav-user">Hi, <b>' + esc(session.name) + '</b></span><button class="nav-btn" onclick="logout()">Log out</button>';
+  else h += '<button class="nav-btn" onclick="authTab(\'login\');go(\'auth\')">Log in</button>';
+  n.innerHTML = h;
+}
+
+/* ================================================================
+   SEARCH + PROFILES
+   ================================================================ */
+let TINTERS = [], resFilter = 'all', cur = null;
+
+function cardHTML(t) {
+  const kindBadge = t.kind === 'shop' ? '🏠 Shop' : '👤 Independent';
+  const stars = '★'.repeat(Math.round(t.rating)) + '☆'.repeat(5 - Math.round(t.rating));
+  return '<div class="tcard" onclick="openProfile(\'' + t.id + '\')">' +
+    '<div class="tcard-photo">' + (t.photo ? '<img src="' + esc(t.photo) + '" alt="' + esc(t.name) + '" loading="lazy">' : esc(t.emoji)) + (t.tag ? '<span class="badge">' + esc(t.tag) + '</span>' : '') + '</div>' +
+    '<div class="tcard-body">' +
+      '<div class="tcard-name">' + esc(t.name) + (t.verified ? ' <span class="verified">✓</span>' : '') + '</div>' +
+      '<div class="tcard-meta">' + kindBadge + ' · ' + esc(t.loc) + ' · ' + esc(String(t.yrs)) + ' yrs exp' + (t.mobile ? ' · 🚐 Mobile' : '') + '</div>' +
+      '<div class="stars">' + stars + ' <b>' + t.rating.toFixed(1) + '</b> <span style="color:var(--muted)">(' + t.reviews + ' verified)</span></div>' +
+      '<div class="warranty-line">🛡️ Lifetime warranty on in-app bookings</div>' +
+      '<div class="tcard-foot"><div class="price">' + esc(t.priceLbl) + ' <small>/ full vehicle</small></div><div class="dist">' + esc(t.loc) + '</div></div>' +
+    '</div></div>';
+}
+async function loadTinters() {
+  TINTERS = await DB.listTinters();
+  $('home-cards').innerHTML = TINTERS.length ? TINTERS.slice(0, 3).map(cardHTML).join('') : '<div class="empty">No tinters yet — be the first to <a href="#" onclick="startOnboard();return false" style="color:var(--accent)">join as a tinter</a>.</div>';
+}
+function setFilter(f) {
+  resFilter = f;
+  document.querySelectorAll('#res-filters .pill').forEach(p => p.classList.toggle('on', p.dataset.f === f));
+  renderResults();
+}
+function renderResults() {
+  let list = TINTERS;
+  if (resFilter === 'shop') list = TINTERS.filter(t => t.kind === 'shop');
+  if (resFilter === 'solo') list = TINTERS.filter(t => t.kind === 'solo');
+  if (resFilter === 'mobile') list = TINTERS.filter(t => t.mobile);
+  $('res-cards').innerHTML = list.length ? list.map(cardHTML).join('') : '<div class="empty">No tinters match this filter yet.</div>';
+}
+function search() {
+  const loc = $('q-loc').value.trim() || 'Sebastian, FL';
+  $('res-title').textContent = 'Tinters near ' + loc;
+  $('res-sub').textContent = TINTERS.length + ' verified pros · upfront pricing · warranty on every booking';
+  resFilter = 'all';
+  document.querySelectorAll('#res-filters .pill').forEach(p => p.classList.toggle('on', p.dataset.f === 'all'));
+  renderResults();
+  go('results');
+}
+async function openProfile(id) {
+  $('prof-wrap').innerHTML = '<div class="empty">Loading…</div>';
+  go('profile');
+  cur = await DB.getTinter(id);
+  if (!cur) { $('prof-wrap').innerHTML = '<div class="empty">Tinter not found.</div>'; return; }
+  const t = cur, stars = '★'.repeat(Math.round(t.rating)) + '☆'.repeat(5 - Math.round(t.rating));
+  $('prof-wrap').innerHTML =
+    '<div class="prof-head">' +
+      '<div class="prof-avatar">' + (t.photo ? '<img src="' + esc(t.photo) + '" alt="' + esc(t.name) + '">' : esc(t.emoji)) + '</div>' +
+      '<div class="prof-info"><h2>' + esc(t.name) + (t.verified ? ' <span class="verified">✓</span>' : '') + '</h2>' +
+      '<div class="loc">' + (t.kind === 'shop' ? '🏠 Tint shop' : '👤 Independent pro') + ' · ' + esc(t.loc) + (t.mobile ? ' · 🚐 Mobile service' : ' · 🏠 Shop location') + '</div>' +
+      '<div class="stars">' + stars + ' <b>' + t.rating.toFixed(1) + '</b> <span style="color:var(--muted)">(' + t.reviews + ' verified reviews · ' + t.jobs + ' jobs)</span></div>' +
+      '<div class="prof-stats"><div class="pstat"><b>' + esc(String(t.yrs)) + '</b><span>years exp</span></div>' +
+      '<div class="pstat"><b>' + t.jobs + '</b><span>jobs done</span></div>' +
+      '<div class="pstat"><b>' + esc(t.film.join(' · ') || '—') + '</b><span>film types</span></div></div></div>' +
+      '<div class="prof-cta"><button class="btn btn-acc" onclick="startBook()">Book now</button>' +
+      '<button class="btn btn-ghost" onclick="toast(\'In-app messaging arrives in Phase 2.\')">💬 Message in app</button></div>' +
+    '</div>' +
+    '<div class="contact-hidden">🔒 Phone &amp; address are revealed after you book.<br>Message ' + esc(t.owner.split(' ')[0] || 'the tinter') + ' anytime through the app.</div>' +
+    '<div class="protect-box"><h4>🛡️ Protected when you book in-app</h4><ul>' +
+      '<li>Lifetime install warranty — valid only on TintConnect bookings</li>' +
+      '<li>Payment held securely until you confirm the job\'s done right</li>' +
+      '<li>Free re-do or refund if the work isn\'t up to standard</li></ul></div>' +
+    '<div class="prof-grid"><div>' +
+      '<div class="panel" style="margin-bottom:20px"><h3>About ' + esc(t.owner) + '</h3>' +
+        '<p style="color:var(--muted);line-height:1.6">' + esc(t.about) + '</p>' +
+        '<h3 style="margin-top:20px">Recent work</h3><div class="portfolio">' +
+        (t.portfolio.length ? t.portfolio.map(p => '<div>' + (String(p).match(/\.(jpg|jpeg|png|webp)$/i) ? '<img src="' + esc(p) + '" alt="Recent work" loading="lazy">' : esc(p)) + '</div>').join('') : '<div>📷</div><div>📷</div><div>📷</div>') + '</div></div>' +
+      '<div class="panel"><h3>Reviews <span style="font-size:13px;color:var(--muted);font-weight:400">— from verified bookings only</span></h3>' +
+        (t.revs.length ? t.revs.map(r => '<div class="review"><div class="who">' + esc(r[0]) + ' <span class="stars">' + '★'.repeat(r[2]) + '</span><span class="vtag">✓ VERIFIED BOOKING</span></div><div class="txt">"' + esc(r[1]) + '"</div></div>').join('')
+          : '<div class="empty">No reviews yet — be the first to book.</div>') + '</div>' +
+    '</div>' +
+    '<div><div class="panel"><h3>Services &amp; pricing</h3>' +
+      (t.services.length ? t.services.map(s => '<div class="svc-row"><span>' + esc(s[0]) + '</span><b>' + esc(s[1]) + '</b></div>').join('') : '<div class="empty">Pricing on request.</div>') +
+      '<p style="color:var(--muted);font-size:12.5px;margin-top:14px">Final quote confirmed after vehicle check. Warranty applies to in-app bookings.</p></div></div>' +
+    '</div>';
+}
+
+/* ================================================================
+   BOOKING FLOW
+   ================================================================ */
+const BSTEPS = ['Vehicle', 'Shade', 'Film', 'Schedule', 'Confirm'];
+let bStep = 0, booking = {};
+const VEHICLES = [['🚗', 'Sedan / Coupe', 'Most common'], ['🚙', 'SUV / Crossover', ''], ['🛻', 'Truck', ''], ['🚐', 'Van / Minivan', '']];
+const SHADES = [
+  { n: '50%', d: 'Light', c: 'rgba(200,220,240,.55)' }, { n: '35%', d: 'Medium', c: 'rgba(120,150,180,.6)' },
+  { n: '20%', d: 'Dark', c: 'rgba(60,80,110,.72)' }, { n: '5%', d: 'Limo', c: 'rgba(15,25,40,.9)' },
+];
+const FILMS = [
+  { n: 'Dyed', d: 'Classic look, budget-friendly', p: 0, ico: '🎨' },
+  { n: 'Carbon', d: 'No fade, great heat rejection', p: 60, ico: '⬛' },
+  { n: 'Ceramic', d: 'Best heat & UV block, no signal loss', p: 140, ico: '💎' },
+];
+function startBook() {
+  if (!cur) return;
+  if (!requireAuth('customer')) return;
+  booking = { tinter: cur, vehicle: null, shade: null, film: null, date: '', time: '' };
+  bStep = 0;
+  document.querySelector('#v-book .book-nav').style.display = 'flex';
+  $('book-name').textContent = cur.name;
+  renderBook();
+  go('book');
+}
+function renderBook() {
+  $('book-steps').innerHTML = BSTEPS.map((s, i) =>
+    '<div class="step ' + (i === bStep ? 'on' : '') + ' ' + (i < bStep ? 'done' : '') + '">' + (i + 1) + '. ' + s + '</div>').join('');
+  const B = $('book-body');
+  $('book-back').style.visibility = bStep === 0 ? 'hidden' : 'visible';
+  $('book-next').textContent = bStep === 4 ? 'Confirm booking →' : 'Continue →';
+
+  if (bStep === 0) B.innerHTML = '<div class="sec-sub">What are we tinting?</div><div class="opt-grid">' +
+    VEHICLES.map((v, i) => '<div class="opt ' + (booking.vehicle === i ? 'sel' : '') + '" onclick="booking.vehicle=' + i + ';renderBook()"><div class="ico">' + v[0] + '</div><div class="lbl">' + v[1] + '</div><div class="sub">' + v[2] + '</div></div>').join('') + '</div>';
+
+  if (bStep === 1) B.innerHTML = '<div class="sec-sub">Pick your shade <span style="color:var(--muted)">(Florida legal: 28%+ front, 15%+ rear)</span></div><div class="shade-row">' +
+    SHADES.map((s, i) => '<div class="shade ' + (booking.shade === i ? 'sel' : '') + '" onclick="booking.shade=' + i + ';renderBook()"><div class="swatch" style="background:' + s.c + '"></div><div class="lbl"><b>' + s.n + '</b> — ' + s.d + '</div></div>').join('') + '</div>';
+
+  if (bStep === 2) B.innerHTML = '<div class="sec-sub">Choose your film</div><div class="opt-grid">' +
+    FILMS.map((f, i) => '<div class="opt ' + (booking.film === i ? 'sel' : '') + '" onclick="booking.film=' + i + ';renderBook()"><div class="ico">' + f.ico + '</div><div class="lbl">' + f.n + '</div><div class="sub">' + f.d + '</div><div class="sub" style="color:var(--accent);font-weight:700">' + (f.p ? '+$' + f.p : 'Included') + '</div></div>').join('') + '</div>';
+
+  if (bStep === 3) {
+    const d = new Date(); d.setDate(d.getDate() + 1);
+    const dstr = d.toISOString().slice(0, 10);
+    B.innerHTML = '<div class="sec-sub">When works for you? ' + (cur.mobile ? '(tinter comes to you 🚐)' : '') + '</div>' +
+      '<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:18px">' +
+      '<input type="date" id="bk-date" value="' + (booking.date || dstr) + '" min="' + dstr + '" style="background:var(--bg2);border:1px solid #2d3a52;color:var(--text);border-radius:10px;padding:13px 16px;font-size:15px">' +
+      '<select id="bk-time" style="background:var(--bg2);border:1px solid #2d3a52;color:var(--text);border-radius:10px;padding:13px 16px;font-size:15px">' +
+      ['9:00 AM', '10:30 AM', '12:00 PM', '1:30 PM', '3:00 PM', '4:30 PM'].map(t => '<option' + (booking.time === t ? ' selected' : '') + '>' + t + '</option>').join('') + '</select></div>';
+  }
+
+  if (bStep === 4) {
+    const base = cur.price, fp = FILMS[booking.film].p, total = base + fp, fee = Math.round(total * 0.12);
+    B.innerHTML = '<div class="sec-sub">Review &amp; confirm</div><div class="summary">' +
+      '<div class="row"><span>Tinter</span><b>' + esc(cur.name) + ' ✓</b></div>' +
+      '<div class="row"><span>Vehicle</span><b>' + VEHICLES[booking.vehicle][1] + '</b></div>' +
+      '<div class="row"><span>Shade / Film</span><b>' + SHADES[booking.shade].n + ' ' + SHADES[booking.shade].d + ' · ' + FILMS[booking.film].n + '</b></div>' +
+      '<div class="row"><span>When</span><b>' + esc(booking.date) + ' · ' + esc(booking.time) + '</b></div>' +
+      '<div class="row"><span>Install</span><b>$' + total + '</b></div>' +
+      '<div class="row"><span>Service &amp; warranty fee (12%)</span><b>$' + fee + '</b></div>' +
+      '<div class="row total"><span>Total</span><span>$' + (total + fee) + '</span></div></div>' +
+      '<div class="escrow-note"><b>🔒 How your money is protected:</b> your $' + (total + fee) + ' is held securely by TintConnect — the tinter doesn\'t get paid until you confirm the job\'s done right. Not happy? Request a free re-do or a refund. <b>Your lifetime warranty activates the moment you confirm.</b>' +
+      (USE_DB ? '' : '<br><br>🧪 <b>Demo mode:</b> no real charge happens today — Stripe escrow activates in Phase 2.') + '</div>';
+  }
+}
+function bookNav(d) {
+  if (d === 1) {
+    if (bStep === 0 && booking.vehicle == null) return toast('Pick a vehicle type');
+    if (bStep === 1 && booking.shade == null) return toast('Pick a shade');
+    if (bStep === 2 && booking.film == null) return toast('Pick a film');
+    if (bStep === 3) { booking.date = $('bk-date').value; booking.time = $('bk-time').value; if (!booking.date) return toast('Pick a date'); }
+    if (bStep === 4) return finishBook();
+    bStep++;
+  } else bStep--;
+  renderBook();
+}
+async function finishBook() {
+  const base = cur.price, fp = FILMS[booking.film].p, total = base + fp, fee = Math.round(total * 0.12);
+  $('book-next').disabled = true;
+  try {
+    const dt = new Date(booking.date + 'T' + to24h(booking.time) + ':00');
+    const bk = await DB.createBooking({
+      tinter_id: cur.id,
+      vehicle_type: VEHICLES[booking.vehicle][1],
+      shade: SHADES[booking.shade].n + ' ' + SHADES[booking.shade].d,
+      film: FILMS[booking.film].n,
+      scheduled_at: dt.toISOString(),
+      price_cents: total * 100,
+      fee_cents: fee * 100,
+    });
+    // --- Stripe Checkout (real payment) ---
+    if (USE_DB && CFG.STRIPE_PUBLISHABLE_KEY) {
+      $('book-body').innerHTML = '<div class="success"><div class="big">💳</div><h2>Almost done!</h2><p>Taking you to secure checkout…</p></div>';
+      const r = await fetch('/api/create-checkout-session', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount_cents: total * 100,
+          tinter_name: cur.name,
+          service_name: VEHICLES[booking.vehicle][1] + ' — ' + FILMS[booking.film].n,
+          booking_id: bk.id || '',
+          customer_email: session && session.email,
+          success_url: location.origin + location.pathname + '#booked=' + (bk.id || ''),
+          cancel_url: location.origin + location.pathname + '#booking-cancelled',
+        }),
+      });
+      const j = await r.json();
+      if (j.url) { location.href = j.url; return; }
+      throw new Error(j.error || 'Checkout failed');
+    }
+    $('book-body').innerHTML = '<div class="success"><div class="big">✅</div><h2>You\'re booked!</h2>' +
+      '<p>' + esc(cur.name) + ' will confirm shortly.' + (USE_DB ? '' : ' (Demo mode — no real charge.)') + '<br>Payment is held securely until the job\'s done.<br><b style="color:var(--green)">🛡️ Your lifetime warranty is now active.</b></p>' +
+      '<button class="btn btn-acc" style="margin-top:24px" onclick="openMyBookings()">View my bookings</button></div>';
+    document.querySelector('#v-book .book-nav').style.display = 'none';
+  } catch (e) { toast('Booking failed: ' + (e.message || e)); }
+  $('book-next').disabled = false;
+}
+function to24h(t) {
+  const m = t.match(/(\d+):(\d+)\s(AM|PM)/); if (!m) return '09:00';
+  let h = parseInt(m[1], 10); if (m[3] === 'PM' && h < 12) h += 12; if (m[3] === 'AM' && h === 12) h = 0;
+  return ('0' + h).slice(-2) + ':' + m[2];
+}
+
+/* ================================================================
+   TINTER ONBOARDING
+   ================================================================ */
+const OBSTEPS = ['Business', 'Services', 'Portfolio', 'Verify', 'Done'];
+let obStep = 0, ob = {};
+const OB_SERVICES = [
+  ['Full vehicle — dyed', 199], ['Full vehicle — carbon', 299], ['Full vehicle — ceramic', 399],
+  ['Front two windows', 99], ['Windshield brow', 49], ['Home windows', 0], ['Commercial', 0],
+];
+const inp = 'background:var(--bg2);border:1px solid #2d3a52;color:var(--text);border-radius:10px;padding:14px 16px;font-size:15px';
+function startOnboard() {
+  if (!requireAuth('tinter')) return;
+  ob = { svcs: {} }; obStep = 0; renderOb(); go('onboard');
+}
+function renderOb() {
+  $('ob-steps').innerHTML = OBSTEPS.map((s, i) =>
+    '<div class="step ' + (i === obStep ? 'on' : '') + ' ' + (i < obStep ? 'done' : '') + '">' + (i + 1) + '. ' + s + '</div>').join('');
+  const B = $('ob-body');
+  $('ob-back').style.visibility = obStep === 0 ? 'hidden' : 'visible';
+  $('ob-next').textContent = obStep === 3 ? 'Submit for review →' : 'Continue →';
+  $('ob-next').style.display = obStep === 4 ? 'none' : '';
+  $('ob-back').style.display = obStep === 4 ? 'none' : '';
+
+  if (obStep === 0) B.innerHTML = '<div class="sec-sub">Tell customers who you are</div>' +
+    '<div style="display:grid;gap:14px;max-width:560px;margin-top:18px">' +
+    '<div class="field"><label>Business name</label><input id="ob-biz" placeholder="Coastline Tint Co." value="' + esc(ob.biz || '') + '"></div>' +
+    '<div class="field"><label>Your name</label><input id="ob-owner" placeholder="Your name" value="' + esc(ob.owner || '') + '"></div>' +
+    '<div class="field"><label>City, State</label><input id="ob-loc" placeholder="Sebastian, FL" value="' + esc(ob.loc || '') + '"></div>' +
+    '<div class="field"><label>Short bio — what makes your work great?</label><textarea id="ob-bio" rows="3" placeholder="e.g. 8 years tinting, LLumar certified, mobile service…">' + esc(ob.bio || '') + '</textarea></div>' +
+    '<div style="display:flex;gap:12px;flex-wrap:wrap">' +
+      '<div class="field" style="flex:1;min-width:160px"><label>Experience</label><select id="ob-yrs"><option value="">Years experience</option>' + ['1-2', '3-5', '6-10', '10+'].map(y => '<option' + (ob.yrs === y ? ' selected' : '') + '>' + y + '</option>').join('') + '</select></div>' +
+      '<div class="field" style="flex:1;min-width:160px"><label>Business type</label><select id="ob-kind"><option value="">Shop or independent?</option>' + ['Tint shop / business', 'Independent pro'].map(y => '<option' + (ob.kind === y ? ' selected' : '') + '>' + y + '</option>').join('') + '</select></div>' +
+    '</div>' +
+    '<div style="display:flex;gap:12px;flex-wrap:wrap">' +
+      '<div class="field" style="flex:1;min-width:160px"><label>Work style</label><select id="ob-type"><option value="">Shop or mobile?</option>' + ['Shop location', 'Mobile only', 'Both'].map(y => '<option' + (ob.type === y ? ' selected' : '') + '>' + y + '</option>').join('') + '</select></div>' +
+      '<div class="field" style="flex:1;min-width:160px"><label>Service radius (miles)</label><input id="ob-radius" type="number" placeholder="30" value="' + esc(ob.radius || '') + '"></div>' +
+    '</div></div>';
+
+  if (obStep === 1) B.innerHTML = '<div class="sec-sub">What do you offer? Set your prices — you keep 88% of every job.</div>' +
+    '<div class="panel" style="max-width:640px;margin-top:18px">' + OB_SERVICES.map((s, i) =>
+    '<div class="svc-row"><span><input type="checkbox"' + (ob.svcs[i] !== undefined ? ' checked' : '') + ' onchange="ob.svcs[' + i + ']=this.checked?(ob.svcs[' + i + ']||' + s[1] + '):undefined" style="margin-right:10px;transform:scale(1.3);accent-color:var(--accent)">' + s[0] + '</span>' +
+    '<b>$<input type="number" value="' + (ob.svcs[i] !== undefined ? ob.svcs[i] : s[1]) + '" onchange="ob.svcs[' + i + ']=+this.value" style="width:80px;background:var(--bg2);border:1px solid #2d3a52;color:var(--text);border-radius:8px;padding:6px 10px;font-size:15px;font-weight:700"></b></div>').join('') + '</div>';
+
+  if (obStep === 2) B.innerHTML = '<div class="sec-sub">Show your best work — customers book based on photos</div>' +
+    '<div class="opt-grid" style="max-width:640px;margin-top:18px">' +
+    [1, 2, 3, 4, 5, 6].map(i => '<div class="opt" id="ob-photo' + i + '" onclick="obPickPhoto(' + i + ')"><div class="ico">📷</div><div class="lbl">Tap to upload</div><div class="sub">Photo ' + i + '</div></div>').join('') + '</div>' +
+    '<input type="file" id="ob-file" accept="image/*" style="display:none" onchange="obPhotoChosen(event)">' +
+    '<p style="color:var(--muted);font-size:13px;margin-top:14px">Tip: close-ups of edges, full rear windows, and before/after shots get the most bookings.</p>';
+
+  if (obStep === 3) B.innerHTML = '<div class="sec-sub">We verify every pro — this is what keeps the platform trusted</div>' +
+    '<div class="panel" style="max-width:640px;margin-top:18px">' +
+    '<div class="svc-row"><span>📄 Government ID</span><b style="color:var(--muted);font-weight:400">Upload →</b></div>' +
+    '<div class="svc-row"><span>🛡️ Business insurance proof</span><b style="color:var(--muted);font-weight:400">Upload →</b></div>' +
+    '<div class="svc-row"><span>🏢 Business license (if applicable)</span><b style="color:var(--muted);font-weight:400">Upload →</b></div></div>' +
+    '<div class="protect-box" style="max-width:640px"><h4>What happens next</h4><ul>' +
+    '<li>Our team reviews your application (usually under 24 hours)</li>' +
+    '<li>You get a text the moment you\'re approved: <i>"You\'re live on TintConnect! 🎉"</i> (SMS arrives in Phase 2)</li>' +
+    '<li>New job requests come by SMS — reply YES to accept</li></ul></div>';
+}
+
+let obPhotoSlot = 0;
+function obPickPhoto(i) {
+  obPhotoSlot = i;
+  document.getElementById('ob-file').click();
+}
+function obPhotoChosen(e) {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const maxW = 800, sc = Math.min(1, maxW / img.width);
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * sc); c.height = Math.round(img.height * sc);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      const url = c.toDataURL('image/jpeg', 0.82);
+      ob.photos = ob.photos || {};
+      ob.photos[obPhotoSlot] = url;
+      const box = document.getElementById('ob-photo' + obPhotoSlot);
+      box.classList.add('sel');
+      box.style.position = 'relative'; box.style.overflow = 'hidden';
+      box.innerHTML = '<img src="' + url + '" style="width:100%;height:100%;object-fit:cover;border-radius:12px;position:absolute;inset:0"><div class="lbl" style="position:absolute;bottom:8px;left:0;right:0;background:rgba(0,0,0,.6);border-radius:8px;margin:0 8px">✓ Added</div>';
+      toast('Photo ' + obPhotoSlot + ' added ✓');
+    };
+    img.src = rd.result;
+  };
+  rd.readAsDataURL(f);
+  e.target.value = '';
+}
+
+async function obNav(d) {
+  if (d === 1) {
+    if (obStep === 0) {
+      ob.biz = $('ob-biz').value.trim(); ob.owner = $('ob-owner').value.trim();
+      ob.loc = $('ob-loc').value.trim(); ob.bio = $('ob-bio').value.trim();
+      ob.yrs = $('ob-yrs').value; ob.kind = $('ob-kind').value;
+      ob.type = $('ob-type').value; ob.radius = $('ob-radius').value;
+      if (!ob.biz || !ob.owner || !ob.loc) return toast('Fill in your business name, your name, and location');
+      if (!ob.kind) return toast('Choose shop or independent pro');
+    }
+    if (obStep === 1) {
+      const svcs = Object.keys(ob.svcs).filter(k => ob.svcs[k] !== undefined)
+        .map(k => ({ name: OB_SERVICES[k][0], price_cents: Math.round(ob.svcs[k] * 100) }));
+      if (!svcs.length) return toast('Select at least one service');
+      ob.servicesPicked = svcs;
+    }
+    if (obStep === 3) {
+      $('ob-next').disabled = true;
+      try {
+        await DB.createTinterApplication({
+          biz: ob.biz, owner: ob.owner, loc: ob.loc, bio: ob.bio, yrs: ob.yrs,
+          kind: ob.kind, mtype: ob.type, radius: ob.radius, services: ob.servicesPicked,
+          photos: ob.photos ? Object.keys(ob.photos).sort().map(k => ob.photos[k]) : [],
+        });
+        obStep = 4;
+        $('ob-body').innerHTML = '<div class="success"><div class="big">📋</div><h2>Application submitted!</h2>' +
+          '<p>We\'re reviewing <b>' + esc(ob.biz) + '</b>.<br>You\'ll get a text when you\'re approved — usually within 24 hours.<br><br>Then the jobs start coming to <i>you</i>.</p>' +
+          '<button class="btn btn-acc" style="margin-top:24px" onclick="openDashboard()">Go to dashboard</button></div>';
+        $('ob-steps').innerHTML = OBSTEPS.map((s, i) => '<div class="step done">' + (i + 1) + '. ' + s + '</div>').join('');
+        $('ob-next').style.display = 'none'; $('ob-back').style.display = 'none';
+        document.querySelector('#v-onboard .book-nav').style.display = 'none';
+      } catch (e) { toast('Submit failed: ' + (e.message || e)); }
+      $('ob-next').disabled = false;
+      return;
+    }
+    obStep++;
+  } else obStep--;
+  renderOb();
+}
+
+/* ================================================================
+   TINTER DASHBOARD
+   ================================================================ */
+const STATUS_TAG = { requested: ['new', 'NEW REQUEST'], accepted: ['ok', 'CONFIRMED'], declined: ['bad', 'DECLINED'], completed: ['ok', 'COMPLETED'], confirmed: ['ok', 'JOB DONE ✓'], disputed: ['bad', 'DISPUTED'], cancelled: ['bad', 'CANCELLED'] };
+function fmtWhen(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' }) + ' · ' +
+    d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+}
+async function openDashboard() {
+  if (!requireAuth('tinter')) return;
+  go('dashboard');
+  $('dash-sub').innerHTML = 'Loading…';
+  $('dash-stats').innerHTML = ''; $('dash-jobs').innerHTML = ''; $('dash-services').innerHTML = '';
+  const t = await DB.myTinter();
+  if (!t) { // tinter signed up but hasn't finished onboarding
+    $('dash-sub').innerHTML = 'Finish your application to get listed.';
+    $('dash-jobs').innerHTML = '<div class="empty">No tinter profile yet.</div>';
+    $('dash-services').innerHTML = '';
+    toast('Complete your tinter application first.');
+    startOnboard();
+    return;
+  }
+  $('dash-sub').innerHTML = esc(t.name) + ' · ' + esc(t.loc) + ' · ' + (t.verified ? '<span class="verified">✓ Verified pro</span>' : '<span class="tag warn">UNDER REVIEW</span>');
+  const jobs = await DB.tinterBookings(t.id);
+  const upcoming = jobs.filter(j => j.status === 'requested' || j.status === 'accepted');
+  const earned = jobs.filter(j => j.status === 'completed').reduce((s, j) => s + (j.price_cents || 0) * 0.88, 0);
+  $('dash-stats').innerHTML =
+    '<div class="stat-card"><b>' + money(Math.round(earned)) + '</b><span>Earned (88% of completed)</span></div>' +
+    '<div class="stat-card"><b>' + jobs.filter(j => j.status === 'completed').length + '</b><span>Jobs completed</span></div>' +
+    '<div class="stat-card"><b>' + t.rating.toFixed(1) + ' ★</b><span>Average rating (' + t.reviews + ')</span></div>' +
+    '<div class="stat-card"><b>' + upcoming.length + '</b><span>Upcoming / requests</span></div>';
+  $('dash-jobs').innerHTML = jobs.length ? jobs.map(j => {
+    const st = STATUS_TAG[j.status] || ['new', j.status.toUpperCase()];
+    const acts = j.status === 'requested'
+      ? '<div class="actions"><button class="btn btn-acc btn-sm" onclick="jobAction(\'' + j.id + '\',\'accepted\')">Accept</button>' +
+        '<button class="btn btn-ghost btn-sm" onclick="jobAction(\'' + j.id + '\',\'declined\')">Decline</button></div>'
+      : (j.status === 'accepted' ? '<div class="actions"><button class="btn btn-ghost btn-sm" onclick="jobAction(\'' + j.id + '\',\'completed\')">Mark complete</button></div>' : '');
+    return '<div class="job"><div><div class="d">' + fmtWhen(j.scheduled_at) + ' — ' + esc(j.vehicle_type) + '</div>' +
+      '<div class="s">' + esc(j.film) + ' · ' + esc(j.shade) + ' · ' + money(j.price_cents) + ' · ' + esc(j.customer_name || 'Customer') + '</div></div>' +
+      '<div style="display:flex;gap:10px;align-items:center"><span class="tag ' + st[0] + '">' + st[1] + '</span>' + acts + '</div></div>';
+  }).join('') : '<div class="empty">No job requests yet. Share your profile to get discovered.</div>';
+  $('dash-services').innerHTML = t.services.length
+    ? t.services.map(s => '<div class="svc-row"><span>' + esc(s[0]) + '</span><b>' + esc(s[1]) + '</b></div>').join('')
+    : '<div class="empty">No services listed.</div>';
+}
+async function jobAction(id, status) {
+  await DB.setBookingStatus(id, status);
+  toast(status === 'accepted' ? 'Job accepted — customer notified.' : status === 'declined' ? 'Request declined.' : 'Marked complete. Payment released. 🎉');
+  openDashboard();
+}
+
+/* ================================================================
+   CUSTOMER BOOKINGS
+   ================================================================ */
+async function openMyBookings() {
+  if (!requireAuth('customer')) return;
+  go('mybookings');
+  $('mybookings-list').innerHTML = '<div class="empty">Loading…</div>';
+  const jobs = await DB.customerBookings();
+  $('mybookings-list').innerHTML = jobs.length ? jobs.map(j => {
+    const st = STATUS_TAG[j.status] || ['new', j.status.toUpperCase()];
+    let action = '';
+    if (j.status === 'completed') {
+      action = '<div class="actions" style="margin-top:12px"><div style="font-weight:700;margin-bottom:8px">Was the job well done?</div>' +
+        '<button class="btn btn-acc btn-sm" onclick="confirmJob(\'' + j.id + '\',true)">👍 Yes, great job</button> ' +
+        '<button class="btn btn-ghost btn-sm" onclick="confirmJob(\'' + j.id + '\',false)">👎 No, issue</button></div>';
+    } else if (j.status === 'confirmed') {
+      action = '<div class="s" style="color:var(--green);margin-top:8px">✅ Confirmed — thanks! Your tinter is getting paid.</div>';
+    } else if (j.status === 'disputed') {
+      action = '<div class="s" style="color:var(--warn);margin-top:8px">⚠️ Under review — our team will reach out shortly.</div>';
+    }
+    return '<div class="job"><div><div class="d">' + esc(j.tinter_name || 'Tinter') + ' — ' + fmtWhen(j.scheduled_at) + '</div>' +
+      '<div class="s">' + esc(j.vehicle_type) + ' · ' + esc(j.film) + ' · ' + esc(j.shade) + ' · ' + money(j.price_cents + j.fee_cents) + ' total</div>' +
+      '<div class="s">🛡️ Lifetime warranty active on this booking</div>' + action + '</div>' +
+      '<span class="tag ' + st[0] + '">' + st[1] + '</span></div>';
+  }).join('') : '<div class="empty">No bookings yet. <a href="#" onclick="go(\'home\');return false" style="color:var(--accent)">Find a tinter</a> to get started.</div>';
+}
+async function confirmJob(id, happy) {
+  if (!USE_DB) { toast(happy ? 'Thanks for confirming! 🎉' : 'Noted — we\'ll follow up.'); return; }
+  const newStatus = happy ? 'confirmed' : 'disputed';
+  const { error } = await sb.from('bookings').update({ status: newStatus }).eq('id', id);
+  if (error) return toast('Could not update: ' + error.message);
+  toast(happy ? 'Job confirmed! 🎉 Your tinter gets paid.' : 'Thanks for flagging — our team will review.');
+  openMyBookings();
+}
+
+/* ============ PAYOUTS (admin) ============ */
+function isAdmin() {
+  return !!(session && CFG.ADMIN_EMAIL && session.email && session.email.toLowerCase() === CFG.ADMIN_EMAIL.toLowerCase());
+}
+async function openPayouts() {
+  if (!isAdmin()) return toast('Admin only.');
+  go('payouts');
+  $('payout-list').innerHTML = '<div class="empty">Loading…</div>';
+  $('payout-stats').innerHTML = '';
+  if (!USE_DB) { $('payout-list').innerHTML = '<div class="empty">Connect Supabase to see payouts.</div>'; return; }
+  const { data: jobs, error } = await sb.from('bookings')
+    .select('id,scheduled_at,price_cents,fee_cents,status,paid_out,vehicle_type,film,tinters!inner(business_name,owner_name)')
+    .in('status', ['confirmed', 'completed'])
+    .order('scheduled_at', { ascending: false });
+  if (error) { $('payout-list').innerHTML = '<div class="empty">Error: ' + esc(error.message) + '</div>'; return; }
+  const pending = (jobs || []).filter(j => j.status === 'confirmed' && !j.paid_out);
+  const owed = pending.reduce((s, j) => s + Math.round((j.price_cents || 0) * 0.88), 0);
+  $('payout-stats').innerHTML =
+    '<div class="stat-card"><b>' + money(owed) + '</b><span>Owed to tinters</span></div>' +
+    '<div class="stat-card"><b>' + pending.length + '</b><span>Jobs awaiting payout</span></div>';
+  $('payout-list').innerHTML = (jobs || []).length ? jobs.map(j => {
+    const t = j.tinters || {};
+    const cut = Math.round((j.price_cents || 0) * 0.88);
+    const done = !!j.paid_out;
+    return '<div class="job"><div><div class="d">' + esc(t.business_name || 'Tinter') + ' — ' + fmtWhen(j.scheduled_at) + '</div>' +
+      '<div class="s">' + esc(j.vehicle_type || '') + ' · ' + esc(j.film || '') + ' · Job total ' + money(j.price_cents) + '</div>' +
+      '<div class="s" style="font-weight:700;color:var(--green)">Tinter cut (88%): ' + money(cut) + (done ? ' ✅ Paid' : '') + '</div></div>' +
+      '<div style="display:flex;gap:10px;align-items:center"><span class="tag ' + (j.status === 'confirmed' ? 'ok' : 'new') + '">' + j.status.toUpperCase() + '</span>' +
+      (done ? '' : '<button class="btn btn-acc btn-sm" onclick="markPaidOut(\'' + j.id + '\')">Mark paid</button>') + '</div></div>';
+  }).join('') : '<div class="empty">No jobs awaiting payout. 🎉</div>';
+}
+async function markPaidOut(id) {
+  const { error } = await sb.from('bookings').update({ paid_out: true }).eq('id', id);
+  if (error) return toast('Error: ' + error.message);
+  toast('Marked as paid ✓');
+  openPayouts();
+}
+
+/* ================================================================
+   INIT
+   ================================================================ */
+(async function init() {
+  renderNav();
+  try { session = await DB.getSession(); } catch (e) { session = null; }
+  renderNav();
+  await loadTinters();
+})();
+</script>
+</body>
+</html>
